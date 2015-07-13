@@ -10,6 +10,9 @@ import logging
 import pymongo
 
 
+CONN_TIMEOUT = datetime.timedelta(seconds=1)
+
+
 class PostDataHandler(RequestHandler):
     JSON_TYPE = "application/json"
 
@@ -83,8 +86,6 @@ class GetDataHandler(RequestHandler):
 
 
 class ListenDataHandler(RequestHandler):
-    TIMEOUT = datetime.timedelta(seconds=1)
-
     def get_cursor_for(self, entity):
         now = datetime.datetime.utcnow()
         return self.db.stream.find(
@@ -117,7 +118,7 @@ class ListenDataHandler(RequestHandler):
             if not self.cursor.alive:
                 now = datetime.datetime.utcnow()
                 # While collection is empty, tailable self.cursor dies immediately
-                yield gen.Task(IOLoop.current().add_timeout, self.TIMEOUT)
+                yield gen.Task(IOLoop.current().add_timeout, CONN_TIMEOUT)
                 self.cursor = self.get_cursor_for(entity)
 
             if (yield self.cursor.fetch_next):
@@ -152,7 +153,7 @@ class DataSocketHandler(WebSocketHandler):
             if not self.cursor.alive:
                 now = datetime.datetime.utcnow()
                 # While collection is empty, tailable self.cursor dies immediately
-                yield gen.Task(IOLoop.current().add_timeout, self.TIMEOUT)
+                yield gen.Task(IOLoop.current().add_timeout, CONN_TIMEOUT)
                 self.cursor = self.get_cursor_for(entity)
 
             if (yield self.cursor.fetch_next):
@@ -185,18 +186,25 @@ class DataSocketHandler(WebSocketHandler):
         now = datetime.datetime.utcnow()
 
         try:
-            self.json = json.loads(self.request.body.decode('utf-8'))
+            json = json.loads(self.request.body.decode('utf-8'))
+            # Insert at database
+            now = datetime.datetime.utcnow()
+            result = yield self.db.stream.insert({
+                'entity':   self.entity,
+                'created':  now,
+                'content':  json,
+            })
+            # Write output
+            self.write_message({
+                'entity':   self.entity,
+                'content':  json,
+                'created':  now,
+            })
 
         except ValueError as e:
             self.write_message({
                 'error': "Invalid JSON: %s" % str(e)
             })
-
-        self.write_message({
-            'entity':   self.entity,
-            'content':  self.json,
-            'created':  now,
-        })
 
     def on_close(self):
         if getattr(self, 'cursor', None):
