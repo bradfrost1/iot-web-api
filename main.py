@@ -8,11 +8,14 @@ from api.utils import JSONEncoder, JSONDecoder
 from tornado.ioloop import IOLoop
 from tornado.web import Application
 
-
-app = Application(urls,
-    db=db,
-    debug=True,
-    xsrf_cookies=False,)
+def get_app(**kwargs):
+    options = {
+        'db': db,
+        'debug': True,
+        'xsrf_cookies': False,
+    }
+    options.update(kwargs)
+    return Application(urls, **options)
 
 
 # Override default JSON behaviour
@@ -24,5 +27,5 @@ if __name__ == "__main__":
     import tornado.options
     tornado.options.parse_command_line()
 
-    app.listen(8000)
+    get_app().listen(8000)
     IOLoop.current().start()
