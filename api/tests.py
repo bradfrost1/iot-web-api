@@ -1,34 +1,40 @@
 from main import get_app
-from api.database import client
+from api.database import get_db_conn
 
 from tornado import testing
+from tornado.gen import Return
 from tornado.ioloop import IOLoop
+from tornado.concurrent import Future
 
 import os
 import json
 import unittest
+import unittest.mock as mock
 
 
 TEST_DB = 'test_iotapi'
 
+def mock_future(*args, **kwargs):
+    yield Return(*args, **kwargs)
+
 
 class RestApiTestCase(testing.AsyncHTTPTestCase):
     def setUp(self):
-        self.db = client[TEST_DB]
         super().setUp()
 
     def tearDown(self):
-        client.drop_database(self.db)
         super().tearDown()
 
-    def get_app(self):
-        return get_app(db=self.db)
+    @mock.patch('motor.MotorClient', autospec=True)
+    def get_app(self, motor_client_mock):
+        return get_app()
 
-    def get_new_ioloop(self):
-        "Syncs the test loop with motor client settin the IOLoop to a singleton"
-        return IOLoop.instance()
 
-    def test_send_data_to_an_entity(self):
+    @mock.patch('api.models.do_insert')
+    def test_send_data_to_an_entity(self, do_insert_mock):
+        # stream.insert.return_value = Return(True)
+        print(do_insert_mock.call_count)
+
         response = self.fetch('/data/for/my-device',
             method='POST', headers={
                 'Content-Type': 'application/json'

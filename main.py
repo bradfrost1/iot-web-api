@@ -2,13 +2,15 @@ import os
 import json
 
 from api.routes import urls
-from api.database import db
+from api.database import get_db_conn
 from api.utils import JSONEncoder, JSONDecoder
 
 from tornado.ioloop import IOLoop
 from tornado.web import Application
 
 def get_app(**kwargs):
+    db, _ = get_db_conn()
+    
     options = {
         'db': db,
         'debug': True,

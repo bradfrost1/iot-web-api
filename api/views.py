@@ -50,18 +50,10 @@ class PostDataHandler(RequestHandler):
     @gen.coroutine
     def post(self, entity):
         now = datetime.datetime.utcnow()
-        result = yield self.db.stream.insert({
-            'entity':   entity,
-            'created':  now,
-            'content':  self.json,
-        })
+        result = do_insert(entity, self.json)
 
         self.set_status(201)
-        self.write({
-            'entity':   entity,
-            'created':  now,
-            'content':  self.json,
-        })
+        self.write(result)
 
 
 class GetDataHandler(RequestHandler):
@@ -177,7 +169,7 @@ class DataSocketHandler(WebSocketHandler):
 
         if (yield result):
             self.write_message(result)
-            start_tail()
+            self.start_tail()
 
         else:
             self.close(1003, "Not found")
